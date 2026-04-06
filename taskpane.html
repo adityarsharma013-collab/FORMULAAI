@@ -1,0 +1,678 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Formula AI</title>
+  <script src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@300;400;500&display=swap');
+
+    :root {
+      --bg: #0f0f0f;
+      --surface: #1a1a1a;
+      --border: #2a2a2a;
+      --accent: #00e5a0;
+      --accent-dim: rgba(0,229,160,0.12);
+      --text: #e8e8e8;
+      --muted: #666;
+      --error: #ff4d4d;
+      --mono: 'IBM Plex Mono', monospace;
+      --sans: 'IBM Plex Sans', sans-serif;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+      font-size: 13px;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* ── Header ── */
+    .header {
+      padding: 14px 16px 12px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-shrink: 0;
+    }
+    .logo {
+      width: 28px; height: 28px;
+      background: var(--accent);
+      border-radius: 6px;
+      display: flex; align-items: center; justify-content: center;
+      font-family: var(--mono);
+      font-weight: 600;
+      font-size: 12px;
+      color: #000;
+      letter-spacing: -0.5px;
+    }
+    .header-text h1 {
+      font-size: 13px;
+      font-weight: 500;
+      letter-spacing: 0.02em;
+    }
+    .header-text p {
+      font-size: 10px;
+      color: var(--muted);
+      font-family: var(--mono);
+    }
+
+    /* ── API Key Setup ── */
+    #setup-panel {
+      padding: 16px;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .setup-label {
+      font-size: 11px;
+      color: var(--muted);
+      font-family: var(--mono);
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+    .setup-note {
+      background: var(--accent-dim);
+      border: 1px solid rgba(0,229,160,0.2);
+      border-radius: 6px;
+      padding: 10px 12px;
+      font-size: 11px;
+      line-height: 1.6;
+      color: #aaa;
+    }
+    .setup-note strong { color: var(--accent); }
+
+    /* ── Main Panel ── */
+    #main-panel {
+      display: none;
+      flex-direction: column;
+      flex: 1;
+      overflow: hidden;
+    }
+
+    /* ── Tabs ── */
+    .tabs {
+      display: flex;
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    .tab {
+      flex: 1;
+      padding: 10px 6px;
+      background: none;
+      border: none;
+      color: var(--muted);
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: 0.04em;
+      cursor: pointer;
+      text-transform: uppercase;
+      transition: color 0.15s;
+      border-bottom: 2px solid transparent;
+      margin-bottom: -1px;
+    }
+    .tab.active {
+      color: var(--accent);
+      border-bottom-color: var(--accent);
+    }
+
+    /* ── Tab Content ── */
+    .tab-content { display: none; flex: 1; overflow-y: auto; padding: 14px 16px; flex-direction: column; gap: 12px; }
+    .tab-content.active { display: flex; }
+
+    /* ── Cell Indicator ── */
+    .cell-bar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 8px 10px;
+    }
+    .cell-addr {
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--accent);
+      min-width: 36px;
+    }
+    .cell-formula {
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--muted);
+      flex: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .read-btn {
+      background: none;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      border-radius: 4px;
+      padding: 3px 8px;
+      font-size: 10px;
+      font-family: var(--mono);
+      cursor: pointer;
+      transition: all 0.15s;
+      flex-shrink: 0;
+    }
+    .read-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+    /* ── Textarea ── */
+    textarea {
+      width: 100%;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      font-family: var(--sans);
+      font-size: 12px;
+      padding: 10px;
+      resize: none;
+      outline: none;
+      line-height: 1.5;
+      transition: border-color 0.15s;
+    }
+    textarea:focus { border-color: var(--accent); }
+    textarea::placeholder { color: var(--muted); }
+
+    /* ── Buttons ── */
+    .run-btn {
+      width: 100%;
+      background: var(--accent);
+      color: #000;
+      border: none;
+      border-radius: 6px;
+      padding: 10px;
+      font-family: var(--mono);
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: opacity 0.15s;
+      flex-shrink: 0;
+    }
+    .run-btn:hover { opacity: 0.85; }
+    .run-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+
+    /* ── Output ── */
+    .output-box {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 12px;
+      font-size: 12px;
+      line-height: 1.7;
+      color: #ccc;
+      min-height: 80px;
+      white-space: pre-wrap;
+      flex: 1;
+      overflow-y: auto;
+    }
+    .output-box.has-content { border-color: rgba(0,229,160,0.3); }
+    .output-box code {
+      font-family: var(--mono);
+      background: rgba(0,229,160,0.1);
+      color: var(--accent);
+      padding: 1px 5px;
+      border-radius: 3px;
+      font-size: 11px;
+    }
+
+    /* Insert button */
+    .insert-btn {
+      display: none;
+      width: 100%;
+      background: none;
+      border: 1px solid var(--accent);
+      color: var(--accent);
+      border-radius: 6px;
+      padding: 8px;
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: all 0.15s;
+      flex-shrink: 0;
+    }
+    .insert-btn:hover { background: var(--accent-dim); }
+    .insert-btn.visible { display: block; }
+
+    /* ── Loading ── */
+    .loader {
+      display: none;
+      align-items: center;
+      gap: 8px;
+      font-family: var(--mono);
+      font-size: 10px;
+      color: var(--accent);
+      padding: 4px 0;
+      flex-shrink: 0;
+    }
+    .loader.active { display: flex; }
+    .dot {
+      width: 5px; height: 5px;
+      background: var(--accent);
+      border-radius: 50%;
+      animation: pulse 1s ease-in-out infinite;
+    }
+    .dot:nth-child(2) { animation-delay: 0.2s; }
+    .dot:nth-child(3) { animation-delay: 0.4s; }
+    @keyframes pulse {
+      0%,100% { opacity: 0.2; transform: scale(0.8); }
+      50% { opacity: 1; transform: scale(1.1); }
+    }
+
+    /* ── Settings ── */
+    .settings-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    input[type="password"], input[type="text"] {
+      flex: 1;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      font-family: var(--mono);
+      font-size: 11px;
+      padding: 8px 10px;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+    input:focus { border-color: var(--accent); }
+
+    .save-btn {
+      background: var(--accent);
+      color: #000;
+      border: none;
+      border-radius: 6px;
+      padding: 8px 14px;
+      font-family: var(--mono);
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+
+    .status-dot {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      background: var(--muted);
+      flex-shrink: 0;
+    }
+    .status-dot.ok { background: var(--accent); }
+
+    .privacy-note {
+      font-size: 10px;
+      color: var(--muted);
+      line-height: 1.6;
+      font-family: var(--mono);
+    }
+    .privacy-note span { color: var(--accent); }
+
+    label {
+      font-size: 10px;
+      color: var(--muted);
+      font-family: var(--mono);
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    ::-webkit-scrollbar { width: 4px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+  </style>
+</head>
+<body>
+
+<!-- Header -->
+<div class="header">
+  <div class="logo">fx</div>
+  <div class="header-text">
+    <h1>Formula AI</h1>
+    <p>local · no server · minimal data</p>
+  </div>
+</div>
+
+<!-- Setup Panel (shown if no API key) -->
+<div id="setup-panel">
+  <p class="setup-label">API Key Required</p>
+  <div class="setup-note">
+    <strong>Your key is stored only in your browser's localStorage.</strong><br>
+    It never leaves your machine except in direct calls to Anthropic's API.
+    Only the formula text you choose to send is transmitted — never your cell values.
+  </div>
+  <label>Claude API Key</label>
+  <div class="settings-row">
+    <input type="password" id="setup-key" placeholder="sk-ant-api03-..." />
+    <button class="save-btn" onclick="saveKey()">Save</button>
+  </div>
+  <p class="privacy-note">
+    Get a key at <span>console.anthropic.com</span><br>
+    Costs ~$0.001 per request at Sonnet pricing.
+  </p>
+</div>
+
+<!-- Main Panel -->
+<div id="main-panel">
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('explain')">Explain</button>
+    <button class="tab" onclick="switchTab('generate')">Generate</button>
+    <button class="tab" onclick="switchTab('fix')">Fix</button>
+    <button class="tab" onclick="switchTab('settings')">Key</button>
+  </div>
+
+  <!-- EXPLAIN TAB -->
+  <div id="tab-explain" class="tab-content active">
+    <label>Selected Cell</label>
+    <div class="cell-bar">
+      <span class="cell-addr" id="explain-addr">—</span>
+      <span class="cell-formula" id="explain-formula">select a cell</span>
+      <button class="read-btn" onclick="readCell('explain')">Read</button>
+    </div>
+    <button class="run-btn" id="explain-btn" onclick="runExplain()" disabled>Explain Formula</button>
+    <div class="loader" id="explain-loader"><div class="dot"></div><div class="dot"></div><div class="dot"></div><span>thinking...</span></div>
+    <div class="output-box" id="explain-output">Explanation will appear here.</div>
+  </div>
+
+  <!-- GENERATE TAB -->
+  <div id="tab-generate" class="tab-content">
+    <label>Describe what you need</label>
+    <textarea id="gen-prompt" rows="4" placeholder="e.g. Sum column B only where column A says 'Sales'"></textarea>
+    <button class="run-btn" onclick="runGenerate()">Generate Formula</button>
+    <div class="loader" id="generate-loader"><div class="dot"></div><div class="dot"></div><div class="dot"></div><span>generating...</span></div>
+    <div class="output-box" id="generate-output">Formula will appear here.</div>
+    <button class="insert-btn" id="insert-btn" onclick="insertFormula()">↳ Insert into selected cell</button>
+  </div>
+
+  <!-- FIX TAB -->
+  <div id="tab-fix" class="tab-content">
+    <label>Cell with Error</label>
+    <div class="cell-bar">
+      <span class="cell-addr" id="fix-addr">—</span>
+      <span class="cell-formula" id="fix-formula">select a cell</span>
+      <button class="read-btn" onclick="readCell('fix')">Read</button>
+    </div>
+    <label style="margin-top:4px">Context (optional)</label>
+    <textarea id="fix-context" rows="2" placeholder="e.g. I'm trying to look up a value from Sheet2 col B"></textarea>
+    <button class="run-btn" id="fix-btn" onclick="runFix()" disabled>Diagnose & Fix</button>
+    <div class="loader" id="fix-loader"><div class="dot"></div><div class="dot"></div><div class="dot"></div><span>diagnosing...</span></div>
+    <div class="output-box" id="fix-output">Diagnosis will appear here.</div>
+    <button class="insert-btn" id="fix-insert-btn" onclick="insertFix()">↳ Insert fixed formula</button>
+  </div>
+
+  <!-- SETTINGS TAB -->
+  <div id="tab-settings" class="tab-content">
+    <label>Claude API Key</label>
+    <div class="settings-row">
+      <div class="status-dot" id="key-status-dot"></div>
+      <input type="password" id="settings-key" placeholder="sk-ant-api03-..." />
+      <button class="save-btn" onclick="updateKey()">Update</button>
+    </div>
+    <div class="privacy-note" style="margin-top:4px">
+      <span>What gets sent to Claude API:</span><br>
+      • Explain: only the formula string<br>
+      • Generate: only your text description<br>
+      • Fix: only the formula + error type<br><br>
+      <span>What never leaves your machine:</span><br>
+      • Cell values, row data, sheet names<br>
+      • Your API key (localStorage only)
+    </div>
+    <button class="run-btn" style="background:transparent;border:1px solid var(--error);color:var(--error);margin-top:8px" onclick="clearKey()">Clear Key & Reset</button>
+  </div>
+</div>
+
+<script>
+  // ── State ──
+  let apiKey = localStorage.getItem('formula_ai_key') || '';
+  let lastGeneratedFormula = '';
+  let lastFixedFormula = '';
+
+  // ── Init ──
+  Office.onReady(() => {
+    if (apiKey) showMain();
+  });
+
+  function showMain() {
+    document.getElementById('setup-panel').style.display = 'none';
+    document.getElementById('main-panel').style.display = 'flex';
+    document.getElementById('settings-key').value = apiKey;
+    document.getElementById('key-status-dot').className = 'status-dot ok';
+  }
+
+  function saveKey() {
+    const k = document.getElementById('setup-key').value.trim();
+    if (!k.startsWith('sk-ant')) { alert('That does not look like a Claude API key.'); return; }
+    localStorage.setItem('formula_ai_key', k);
+    apiKey = k;
+    showMain();
+  }
+
+  function updateKey() {
+    const k = document.getElementById('settings-key').value.trim();
+    if (!k.startsWith('sk-ant')) { alert('That does not look like a Claude API key.'); return; }
+    localStorage.setItem('formula_ai_key', k);
+    apiKey = k;
+    document.getElementById('key-status-dot').className = 'status-dot ok';
+  }
+
+  function clearKey() {
+    if (!confirm('Remove API key and reset?')) return;
+    localStorage.removeItem('formula_ai_key');
+    apiKey = '';
+    document.getElementById('main-panel').style.display = 'none';
+    document.getElementById('setup-panel').style.display = 'flex';
+    document.getElementById('setup-key').value = '';
+  }
+
+  // ── Tab Switching ──
+  function switchTab(name) {
+    document.querySelectorAll('.tab').forEach((t,i) => {
+      const names = ['explain','generate','fix','settings'];
+      t.classList.toggle('active', names[i] === name);
+    });
+    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+    document.getElementById('tab-' + name).classList.add('active');
+  }
+
+  // ── Read Cell (formula only, no values) ──
+  async function readCell(tab) {
+    try {
+      await Excel.run(async ctx => {
+        const cell = ctx.workbook.getSelectedRange();
+        cell.load(['address','formulas']);
+        await ctx.sync();
+
+        const addr = cell.address.split('!').pop();
+        const formula = cell.formulas[0][0];
+        const display = formula && String(formula).startsWith('=') ? String(formula) : '(no formula)';
+
+        if (tab === 'explain') {
+          document.getElementById('explain-addr').textContent = addr;
+          document.getElementById('explain-formula').textContent = display;
+          document.getElementById('explain-btn').disabled = display === '(no formula)';
+        } else {
+          document.getElementById('fix-addr').textContent = addr;
+          document.getElementById('fix-formula').textContent = display;
+          document.getElementById('fix-btn').disabled = display === '(no formula)';
+        }
+      });
+    } catch(e) {
+      alert('Could not read cell: ' + e.message);
+    }
+  }
+
+  // ── Claude API Call ──
+  async function callClaude(systemPrompt, userMessage) {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 600,
+        system: systemPrompt,
+        messages: [{ role: 'user', content: userMessage }]
+      })
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.error?.message || 'API error ' + res.status);
+    }
+    const data = await res.json();
+    return data.content[0].text;
+  }
+
+  // ── Explain ──
+  async function runExplain() {
+    const formula = document.getElementById('explain-formula').textContent;
+    if (!formula || formula === '(no formula)') return;
+
+    setLoading('explain', true);
+    const out = document.getElementById('explain-output');
+    out.textContent = '';
+    out.classList.remove('has-content');
+
+    try {
+      const result = await callClaude(
+        'You are a concise Excel formula explainer. Explain what the formula does in plain English. Be brief (3-5 sentences max). Do not repeat the formula back unnecessarily. If it has named functions, briefly explain each.',
+        'Explain this Excel formula: ' + formula
+      );
+      out.textContent = result;
+      out.classList.add('has-content');
+    } catch(e) {
+      out.textContent = '⚠ Error: ' + e.message;
+    } finally {
+      setLoading('explain', false);
+    }
+  }
+
+  // ── Generate ──
+  async function runGenerate() {
+    const prompt = document.getElementById('gen-prompt').value.trim();
+    if (!prompt) return;
+
+    setLoading('generate', true);
+    const out = document.getElementById('generate-output');
+    out.textContent = '';
+    out.classList.remove('has-content');
+    document.getElementById('insert-btn').classList.remove('visible');
+    lastGeneratedFormula = '';
+
+    try {
+      const result = await callClaude(
+        'You are an Excel formula generator. Return ONLY the formula starting with =, then on a new line a brief 1-2 sentence explanation. No preamble. No markdown. Format:\n=FORMULA\nExplanation here.',
+        'Generate an Excel formula for: ' + prompt
+      );
+
+      const lines = result.trim().split('\n');
+      const formula = lines[0].trim();
+      const explanation = lines.slice(1).join(' ').trim();
+
+      out.innerHTML = '<code>' + escapeHtml(formula) + '</code>\n\n' + escapeHtml(explanation);
+      out.classList.add('has-content');
+
+      if (formula.startsWith('=')) {
+        lastGeneratedFormula = formula;
+        document.getElementById('insert-btn').classList.add('visible');
+      }
+    } catch(e) {
+      out.textContent = '⚠ Error: ' + e.message;
+    } finally {
+      setLoading('generate', false);
+    }
+  }
+
+  // ── Fix ──
+  async function runFix() {
+    const formula = document.getElementById('fix-formula').textContent;
+    const context = document.getElementById('fix-context').value.trim();
+    if (!formula || formula === '(no formula)') return;
+
+    setLoading('fix', true);
+    const out = document.getElementById('fix-output');
+    out.textContent = '';
+    out.classList.remove('has-content');
+    document.getElementById('fix-insert-btn').classList.remove('visible');
+    lastFixedFormula = '';
+
+    try {
+      const userMsg = 'Formula: ' + formula + (context ? '\nContext: ' + context : '');
+      const result = await callClaude(
+        'You are an Excel formula debugger. Diagnose the issue and provide a fixed formula. Format your response as:\nISSUE: one sentence describing the problem\nFIX: =CORRECTED_FORMULA\nWHY: one sentence explaining the fix.\nNo markdown, no extra text.',
+        userMsg
+      );
+
+      // Parse fix line
+      const fixMatch = result.match(/FIX:\s*(=\S+)/i);
+      if (fixMatch) lastFixedFormula = fixMatch[1];
+
+      out.textContent = result;
+      out.classList.add('has-content');
+
+      if (lastFixedFormula) {
+        document.getElementById('fix-insert-btn').classList.add('visible');
+      }
+    } catch(e) {
+      out.textContent = '⚠ Error: ' + e.message;
+    } finally {
+      setLoading('fix', false);
+    }
+  }
+
+  // ── Insert into Excel ──
+  async function insertFormula() {
+    if (!lastGeneratedFormula) return;
+    await writeToCell(lastGeneratedFormula);
+  }
+
+  async function insertFix() {
+    if (!lastFixedFormula) return;
+    await writeToCell(lastFixedFormula);
+  }
+
+  async function writeToCell(formula) {
+    try {
+      await Excel.run(async ctx => {
+        const cell = ctx.workbook.getSelectedRange();
+        cell.formulas = [[formula]];
+        await ctx.sync();
+      });
+    } catch(e) {
+      alert('Could not insert formula: ' + e.message);
+    }
+  }
+
+  // ── Helpers ──
+  function setLoading(tab, active) {
+    document.getElementById(tab + '-loader').classList.toggle('active', active);
+    const btn = document.getElementById(tab + '-btn');
+    if (btn) btn.disabled = active;
+    const runBtns = document.querySelectorAll('#tab-' + tab + ' .run-btn');
+    runBtns.forEach(b => b.disabled = active);
+  }
+
+  function escapeHtml(str) {
+    return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+</script>
+</body>
+</html>
